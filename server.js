@@ -77,11 +77,12 @@ server.get('/weather', (req,res) => {
   // res.send( weatherData.data );
   // console.log( weatherData.data );
 
+  let allWeatherArr = [];
   weatherData.data.forEach(item => {
-    let newWeather = new Weather (item);
+    allWeatherArr.push(new Weather (item));
   });
 
-  res.send(Weather.all);
+  res.send(allWeatherArr);
 
 });
 
@@ -90,8 +91,6 @@ const Weather = function (oneWeather)
 {
   this.forecast = oneWeather.weather.description;
   this.time = new Date(oneWeather.valid_date).toDateString();
-
-  Weather.all.push(this);
 
 
   // response should look like:
@@ -107,8 +106,6 @@ const Weather = function (oneWeather)
   //   ...
   // ]
 };
-
-Weather.all = [];
 
 
 server.get('*',(req,res)=>{
