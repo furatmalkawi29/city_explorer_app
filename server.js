@@ -1,50 +1,158 @@
 
-'use strict'; //remember read.me
+'use strict';
 
+//DOTENV (read our enviroment variable)
+require('dotenv').config();
+
+
+// Application Dependencies
 const express = require ('express');
 
-const server = express();
-
-require('dotenv').config(); //before PORT //to define env
-
-const PORT = process.env.PORT || 3000;
-
-
-
+//CORS = Cross Origin Resource Sharing
 const cors = require('cors');
 
+// client-side HTTP request library
+const superagent = require('superagent'); // nmp i superagent
+
+// Application Setup
+const PORT = process.env.PORT || 3000;
+const server = express();
 server.use(cors());
 
-//------------------------
 
-server.get('/', (req,res) => {
+// Routes
+server.get('/', homeRoutHandler );
+server.get('/location', locationRoutHandler);
+server.get('/weather', weatherRoutHandler);
+server.get('*', allRoutHandler);
+server.get('/parks', parkRoutHandler);
+
+
+
+//Functions
+function homeRoutHandler (req,res) {
 
   res.send('this is your home rout!');
+  console.log('this is your home rout!'); }
 
-  console.log('this is your home rout!');
-});
+//---------------------------
+//http://localhost:3000/location?city=amman
+function locationRoutHandler (req,res) {
+  ////////////////// Lab01 - json data /require() ////////////////////////
+  // let locationData = require('./data/location.json');
 
-//-------------------------------
+  ////////////////// Lab02 - api data ////////////////////////
 
-server.get('/location', (req,res) => {
+  // get data from api server (locationIQ)
+  // send a request using superagent library
+  let cityName = req.query.city;
 
-  // you only have one response for each request (one respone in get function)
-  // res.send('location!');
+  let key = process.env.LOCATION_KEY;
+  let LocURL = `https://eu1.locationiq.com/v1/search.php?key=${key}&q=${cityName}&format=json`;
 
-  // load data from json file to variable (like ajax)
-  let locationData = require('./data/location.json');
+  superagent.get(LocURL) //send request to LocationIQ API
+    .then(fullLocationData => {
+      // console.log(fullLocationData.body);
+      let locationData = fullLocationData.body;
+      const locationObjArr = new Location(cityName, locationData);
+      res.send(locationObjArr);
+    });
 
-  let newLocation = new Location (locationData);
+}
 
-  res.send(newLocation);
-
-
-});
+//--------------------------
+//http://localhost:4000/weather?search_query=amman&formatted_query=Amman%2C%2011181%2C%20Jordan&latitude=31.9515694&longitude=35.9239625&page=1/http://localhost:3000/location?city=amman
 
 
-const Location = function (oneLocation)
+function weatherRoutHandler (req,res) {
+
+  console.log(req.query);
+  // let cityName = req.query.city;
+
+  //days = integer // optional
+  //https://api.weatherbit.io/v2.0/forecast/daily?city=amman&&days=5&key=d511f93364224b66948337601100cede`
+  let key = process.env.WEATHER_KEY;
+
+
+  // let cityName = req.query.search_query;
+  let lat = req.query.latitude;
+  let lon = req.query.longitude;
+  // let cityFormat = req.query.formatted_query;
+  let weathURL = `https://api.weatherbit.io/v2.0/forecast/daily?lat=${lat}&lon=${lon}&days=5&key=${key}`;
+  // let weathURL = `https://api.weatherbit.io/v2.0/forecast/daily?city=${cityName}&days=5&key=${key}`;
+
+  superagent.get(weathURL) //send request to LocationIQ API
+    .then(fullWeatherData => {
+      // console.log(fullWeatherData);
+
+      let weatherData = fullWeatherData.body.data;
+      //console.log(weatherData);
+
+      let weatherObjArr = weatherData.map(item => {
+        return new Weather (item); });
+
+      res.send(weatherObjArr);
+      // }
+
+    });
+  // res.send(weatherObjArr);
+  // if we put here it will be excuted before object is filled
+
+}
+
+//---------------------------
+
+function parkRoutHandler (req,res) {
+
+  console.log(req.query);
+  let cityName = req.query.city;
+
+  //https://api.weatherbit.io/v2.0/forecast/daily?city=amman&&days=5&key=d511f93364224b66948337601100cede`
+  let key = process.env.PARK_KEY;
+
+
+  // let cityName = req.query.search_query;
+
+  // let cityFormat = req.query.formatted_query;
+  let weathURL = `https://developer.nps.gov/api/v1/parks?q=${cityName}&limit=10&api_key=${key}`;
+
+
+  superagent.get(weathURL) //send request to LocationIQ API
+    .then(fullWeatherData => {
+      // console.log(fullWeatherData);
+
+      let weatherData = fullWeatherData.body.data;
+      //console.log(weatherData);
+
+      let weatherObjArr = weatherData.map(item => {
+        return new Weather (item); });
+
+      res.send(weatherObjArr);
+      // }
+
+    });
+  // res.send(weatherObjArr);
+  // if we put here it will be excuted before object is filled
+
+}
+//--------------------------
+
+function allRoutHandler (req,res) {
+  let errObj = {
+    status: 500,
+    responseText: 'Sorry, something went wrong'
+  };
+  res.status(500).send(errObj);
+}
+
+//---------------------
+
+
+//Constructor
+
+const Location = function (cityName,oneLocation)
 {
-  this.search_query = 'Lynnwood';
+  this.search_query = cityName;
   this.formatted_query = oneLocation[0].display_name;
   this.latitude = oneLocation[0].lat;
   this.longitude = oneLocation[0].lon;
@@ -60,31 +168,6 @@ const Location = function (oneLocation)
 
 
 //-------------------------------
-
-server.get('/weather', (req,res) => {
-
-  // you only have one response for each request (one respone in get function)
-  // res.send('weather!');
-
-  // load data from json file to variable (like ajax)
-  let weatherData = require('./data/weather.json');
-
-  // oneWeather = { '':'' , '':'' , ....}
-
-  //weatherData = {'data':[], 'key':'pair' , 'key':'pair'}
-  //weatherData.data = [{},{},{},.......]
-
-  // res.send( weatherData.data );
-  // console.log( weatherData.data );
-
-  let allWeatherArr = [];
-  weatherData.data.forEach(item => {
-    allWeatherArr.push(new Weather (item));
-  });
-
-  res.send(allWeatherArr);
-
-});
 
 
 const Weather = function (oneWeather)
@@ -108,22 +191,31 @@ const Weather = function (oneWeather)
 };
 
 
-server.get('*',(req,res)=>{
-  // res.status(404).send('wrong route')
-  // {
-  //     status: 500,
-  //     responseText: "Sorry, something went wrong",
-  //     ...
-  //   }
-  let errObj = {
-    status: 500,
-    responseText: 'Sorry, something went wrong'
-  };
-  res.status(500).send(errObj);
-});
 
-//--------------------
+//-------------------------------
 
+
+const Park = function (oneWeather)
+{
+  this.name = '3';
+  this.address = '3';
+  this.fee = '3';
+  this.description = '3';
+  this.url = '3';
+  // response should look like:
+
+  // [
+  //   {
+  //    "name": "Klondike Gold Rush - Seattle Unit National Historical Park",
+  //    "address": "319 Second Ave S., Seattle, WA 98104",
+  //    "fee": "0.00",
+  //    "description": "Seattle flourished during and after the Klondike Gold Rush. Merchants supplied people from around the world passing through this port city on their way to a remarkable adventure in Alaska. Today, the park is your gateway to learn about the Klondike Gold Rush, explore the area's public lands, and engage with the local community.",
+  //    "url": "https://www.nps.gov/klse/index.htm"
+  //   },
+  // ]
+};
+
+//Server Listner
 server.listen(PORT , () => {
   console.log('Listning...');
 });
