@@ -24,8 +24,8 @@ server.use(cors());
 server.get('/', homeRoutHandler );
 server.get('/location', locationRoutHandler);
 server.get('/weather', weatherRoutHandler);
-server.get('*', allRoutHandler);
 server.get('/parks', parkRoutHandler);
+server.get('*', allRoutHandler);
 
 
 
@@ -66,7 +66,7 @@ function locationRoutHandler (req,res) {
 
 function weatherRoutHandler (req,res) {
 
-  console.log(req.query);
+  // console.log(req.query);
   // let cityName = req.query.city;
 
   //days = integer // optional
@@ -102,32 +102,30 @@ function weatherRoutHandler (req,res) {
 
 //---------------------------
 
+// Request URL: http://localhost:4000/parks?search_query=furat&formatted_query=El%20Furat%2C%20Al%20Qurna%2C%20Al-Qurnah%20Central%20Sbudsitrict%2C%20Al-Qurnah%20District%2C%20Al-Basra%20Governorate%2C%20Iraq&latitude=30.99839&longitude=47.414271&page=1
 function parkRoutHandler (req,res) {
 
-  console.log(req.query);
-  let cityName = req.query.city;
 
-  //https://api.weatherbit.io/v2.0/forecast/daily?city=amman&&days=5&key=d511f93364224b66948337601100cede`
+  let searchQuery = req.query.search_query;
+
   let key = process.env.PARK_KEY;
 
+  let parkURL = `https://developer.nps.gov/api/v1/parks?q=${searchQuery}&limit=10&api_key=${key}`;
 
-  // let cityName = req.query.search_query;
+  //https://developer.nps.gov/api/v1/parks?q=washington&limit=10&api_key=mCl00CGas8FE1Gdab18jbFtkTqCxXgxhN9HmLn1x
 
-  // let cityFormat = req.query.formatted_query;
-  let weathURL = `https://developer.nps.gov/api/v1/parks?q=${cityName}&limit=10&api_key=${key}`;
+  superagent.get(parkURL) //send request to LocationIQ API
+    .then(fullParkData => {
+
+      let parkData = fullParkData.body.data;
+      console.log(parkData);
+
+      let parkObjArr = parkData.map(item => {
+        return new Park (item); });
 
 
-  superagent.get(weathURL) //send request to LocationIQ API
-    .then(fullWeatherData => {
-      // console.log(fullWeatherData);
+      res.send(parkObjArr);
 
-      let weatherData = fullWeatherData.body.data;
-      //console.log(weatherData);
-
-      let weatherObjArr = weatherData.map(item => {
-        return new Weather (item); });
-
-      res.send(weatherObjArr);
       // }
 
     });
@@ -195,13 +193,13 @@ const Weather = function (oneWeather)
 //-------------------------------
 
 
-const Park = function (oneWeather)
+const Park = function (onePark)
 {
-  this.name = '3';
-  this.address = '3';
-  this.fee = '3';
-  this.description = '3';
-  this.url = '3';
+  this.name =onePark.fullName;
+  this.address = `${onePark.addresses[0].line1}, ${onePark.addresses[0].city}, ${onePark.addresses[0].stateCode} ${onePark.addresses[0].postalCode}`;
+  this.fee = onePark.entranceFees[0].cost;
+  this.description = onePark.description;
+  this.url = onePark.url;
   // response should look like:
 
   // [
