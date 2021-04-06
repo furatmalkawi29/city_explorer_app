@@ -1,6 +1,9 @@
 
 'use strict';
 
+
+//NOTE: all //-------------lab03 comments : DATATBASE SETUP
+
 //DOTENV (read our enviroment variable)
 require('dotenv').config();
 
@@ -11,6 +14,10 @@ const express = require ('express');
 //CORS = Cross Origin Resource Sharing
 const cors = require('cors');
 
+//Postges
+const pg = require('pg'); //--------------lab03
+// npm i pg  //-------------lab03
+
 // client-side HTTP request library
 const superagent = require('superagent'); // nmp i superagent
 
@@ -18,6 +25,17 @@ const superagent = require('superagent'); // nmp i superagent
 const PORT = process.env.PORT || 3000;
 const server = express();
 server.use(cors());
+
+//to turn express server into pg client
+// DATABASE_URL used to make express reach spicific
+// database with this url
+// DATABASE_URL should be writtin exactly like that
+// to mach heroku
+//DATABASE_URL=postgresql://furatmalkawi:12345@localhost:5432/class8
+//localhost:5432/class8 --> 5432 reserved port for postgress local server
+//class8 --> name of database
+// env: environment variable
+const client = new pg.Client(process.env.DATABASE_URL); //-------------lab03
 
 
 // Routes
@@ -45,6 +63,11 @@ function locationRoutHandler (req,res) {
 
   // get data from api server (locationIQ)
   // send a request using superagent library
+
+
+  ////////////////// Lab03 - api data ////////////////////////
+
+
   let cityName = req.query.city;
 
   let key = process.env.LOCATION_KEY;
@@ -214,6 +237,13 @@ const Park = function (onePark)
 };
 
 //Server Listner
-server.listen(PORT , () => {
-  console.log('Listning...');
-});
+client.connect() //--------------------lab03
+  .then(() => {
+    app.listen(PORT, () =>
+      console.log(`listening on ${PORT}`)
+    );
+  });
+
+//connect express server to postgres server
+// only when done (connection worked!) ---->
+// prepare express to listen to browser requests
