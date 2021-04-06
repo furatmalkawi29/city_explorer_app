@@ -1,6 +1,9 @@
 
 'use strict';
 
+
+//NOTE: all //-------------lab03 comments : DATATBASE SETUP
+
 //DOTENV (read our enviroment variable)
 require('dotenv').config();
 
@@ -11,6 +14,10 @@ const express = require ('express');
 //CORS = Cross Origin Resource Sharing
 const cors = require('cors');
 
+//Postges
+const pg = require('pg'); //--------------lab03
+// npm i pg  //-------------lab03
+
 // client-side HTTP request library
 const superagent = require('superagent'); // nmp i superagent
 
@@ -18,6 +25,17 @@ const superagent = require('superagent'); // nmp i superagent
 const PORT = process.env.PORT || 3000;
 const server = express();
 server.use(cors());
+
+//to turn express server into pg client
+// DATABASE_URL used to make express reach spicific
+// database with this url
+// DATABASE_URL should be writtin exactly like that
+// to mach heroku
+//DATABASE_URL=postgresql://furatmalkawi:12345@localhost:5432/class8
+//localhost:5432/class8 --> 5432 reserved port for postgress local server
+//class8 --> name of database
+// env: environment variable
+const client = new pg.Client( { connectionString: process.env.DATABASE_URL, ssl: {rejectUnauthorized: false}}); //-------------lab03
 
 
 // Routes
@@ -28,39 +46,140 @@ server.get('/parks', parkRoutHandler);
 server.get('*', allRoutHandler);
 
 
-
-//Functions
+//Functions-------------------------------------------
 function homeRoutHandler (req,res) {
 
   res.send('this is your home rout!');
   console.log('this is your home rout!'); }
 
-//---------------------------
+//----------------------------------------------------------
 //http://localhost:3000/location?city=amman
 function locationRoutHandler (req,res) {
-  ////////////////// Lab01 - json data /require() ////////////////////////
-  // let locationData = require('./data/location.json');
 
-  ////////////////// Lab02 - api data ////////////////////////
+  ////////////////// Lab03 - api data ////////////////////////
 
-  // get data from api server (locationIQ)
-  // send a request using superagent library
-  let cityName = req.query.city;
+  let cityName = req.query.city; //'amman'
 
-  let key = process.env.LOCATION_KEY;
-  let LocURL = `https://eu1.locationiq.com/v1/search.php?key=${key}&q=${cityName}&format=json`;
 
-  superagent.get(LocURL) //send request to LocationIQ API
-    .then(fullLocationData => {
-      // console.log(fullLocationData.body);
-      let locationData = fullLocationData.body;
-      const locationObjArr = new Location(cityName, locationData);
-      res.send(locationObjArr);
+  // check if i have 'amman' in data base?
+  checkDatabase(res,cityName);
+}
+
+//--------------------------------
+
+function checkDatabase (res,cityName)
+{
+  console.log(`/////////////////////////////NEW City Explore//////////////////////////////////`);
+  console.log(`checking ${cityName} in database Table...`);
+
+  // results.rows --> array of table data records
+  // [{},{},....]
+  let SQL = `SELECT search_query FROM cities;`;
+  client.query(SQL)
+    .then (result=>{
+      console.log(result.rows);
+
+      let cityArr = result.rows.map(item => {
+        return item.search_query;
+      });
+
+      console.log('cityArr :');
+      // array of searched cities ['amman,'irbid, ...]
+      console.log(cityArr);
+
+
+      if(cityArr.includes(cityName)) {
+        console.log(`--------------------------------------`);
+        console.log(`found ${cityName} in database!`);
+
+        let SQL = `SELECT * FROM cities WHERE search_query =$1`;
+        let safeValues = [cityName];
+        client.query(SQL,safeValues)
+          .then (result=>{
+            console.log(`Returned ${cityName} data from database is :`);
+            console.log(result.rows);
+
+            res.send(result.rows[0]); // {}
+            console.log(`Response sent! :--------------------`);
+            console.log(result.rows[0]);
+
+          });
+
+
+      }
+      else {
+        console.log(`--------------------------------------`);
+        console.log(` ${cityName} not found in database!`);
+
+        //1) Hit API to get city DATA :
+        let key = process.env.LOCATION_KEY;
+        let LocURL = `https://eu1.locationiq.com/v1/search.php?key=${key}&q=${cityName}&format=json`;
+
+        superagent.get(LocURL) //send request to LocationIQ API
+          .then(fullLocationData => {
+            let locationData = fullLocationData.body;
+            const locationObj = new Location(cityName, locationData);
+
+
+
+            //2) Save city Api DATA in databas :
+
+            console.log(`--------------------------------------`);
+            console.log(` This is ${cityName} api data:`);
+
+            console.log(locationObj);
+
+
+            saveToDatabaseApi(res,locationObj);
+
+          }).catch(error=>{
+            res.send(error);
+          });//speragent
+      }//else
     });
+}//function
+//-----------------------------
+function saveToDatabaseApi (res,locationObj)
+{
+  let searchQuery = locationObj.search_query;
+  let formattedQuery = locationObj.formatted_query;
+  let latitude = locationObj.latitude;
+  let longitude = locationObj.longitude;
+
+  console.log(`--------------------------------------`);
+  console.log(`Saving ${searchQuery} data in database ....`);
+  // console.log(locationObj);
+
+  //save values in table + return sent values from database in result.rows
+  // in SQL : put names in schema.sql
+  let SQL = `INSERT INTO cities (search_query,formatted_query,latitude,longitude) VALUES ($1,$2,$3,$4) RETURNING *;`;
+
+  let safeValues = [searchQuery,formattedQuery,latitude,longitude];
+
+  client.query(SQL,safeValues)
+    .then(result=>{
+
+      console.log(`--------------------------------------`);
+      console.log(`Returned ${searchQuery} data from database is :`);
+
+      console.log(result.rows);
+
+      res.send(result.rows[0]);
+      console.log(`Response sent! :---------------------`);
+      console.log(result.rows[0]);
+
+
+      //result.rows --> when using query() method
+      // -->  returns in results uneccessary rubish data
+      // result.rows --> takes data left the rest
+    }).catch(error=>{
+      res.send(error);});
+
 
 }
 
-//--------------------------
+
+//-------------------------------------
 //http://localhost:4000/weather?search_query=amman&formatted_query=Amman%2C%2011181%2C%20Jordan&latitude=31.9515694&longitude=35.9239625&page=1/http://localhost:3000/location?city=amman
 
 
@@ -94,6 +213,8 @@ function weatherRoutHandler (req,res) {
       res.send(weatherObjArr);
       // }
 
+    }).catch(error=>{
+      res.send(error);
     });
   // res.send(weatherObjArr);
   // if we put here it will be excuted before object is filled
@@ -118,7 +239,7 @@ function parkRoutHandler (req,res) {
     .then(fullParkData => {
 
       let parkData = fullParkData.body.data;
-      console.log(parkData);
+      // console.log(parkData);
 
       let parkObjArr = parkData.map(item => {
         return new Park (item); });
@@ -128,6 +249,8 @@ function parkRoutHandler (req,res) {
 
       // }
 
+    }).catch(error=>{
+      res.send(error);
     });
   // res.send(weatherObjArr);
   // if we put here it will be excuted before object is filled
@@ -213,7 +336,22 @@ const Park = function (onePark)
   // ]
 };
 
+
 //Server Listner
-server.listen(PORT , () => {
-  console.log('Listning...');
-});
+
+// used to debug --> how?
+// if express connected with postgres sucessfully-->
+// express start listnening --> console.log -->
+
+client.connect() //--------------------lab03
+  .then(() => {
+    server.listen(PORT, () =>
+      console.log(`listening on ${PORT}`));
+
+  }).catch(error=>{
+    res.send(error);
+  });
+
+//connect express server to postgres server
+// only when done (connection worked!) ---->
+// prepare express to listen to browser requests
