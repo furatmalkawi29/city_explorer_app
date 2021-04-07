@@ -35,6 +35,8 @@ server.use(cors());
 //localhost:5432/class8 --> 5432 reserved port for postgress local server
 //class8 --> name of database
 // env: environment variable
+// const client = new pg.Client(process.env.DATABASE_URL); //-------------lab03
+
 const client = new pg.Client( { connectionString: process.env.DATABASE_URL, ssl: {rejectUnauthorized: false}}); //-------------lab03
 
 
@@ -349,7 +351,7 @@ client.connect() //--------------------lab03
       console.log(`listening on ${PORT}`));
 
   }).catch(error=>{
-    res.send(error);
+    console.log(error);
   });
 
 //connect express server to postgres server
