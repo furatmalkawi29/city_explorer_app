@@ -41,10 +41,10 @@ server.use(cors());
 // env: environment variable
 
 // to run locally:
-const client = new pg.Client(process.env.DATABASE_URL); //-------------lab03
+// const client = new pg.Client(process.env.DATABASE_URL); //-------------lab03
 
 //to run on heroku:
-// const client = new pg.Client( { connectionString: process.env.DATABASE_URL, ssl: {rejectUnauthorized: false}}); //-------------lab03
+const client = new pg.Client( { connectionString: process.env.DATABASE_URL, ssl: {rejectUnauthorized: false}}); //-------------lab03
 
 
 // Routes
